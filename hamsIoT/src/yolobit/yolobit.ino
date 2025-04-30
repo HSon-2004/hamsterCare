@@ -65,12 +65,12 @@ void callback_mqtt(char *topic, byte *payload, unsigned int length) {
     return;
   }
 
-  Serial.print("Nhận dữ liệu từ topic: ");
-  Serial.println(topic);
-  Serial.print("Dataname: ");
-  Serial.println(dataname);
-  Serial.print("Value: ");
-  Serial.println(value);
+  // Serial.print("Nhận dữ liệu từ topic: ");
+  // Serial.println(topic);
+  // Serial.print("Dataname: ");
+  // Serial.println(dataname);
+  // Serial.print("Value: ");
+  // Serial.println(value);
 
   if (strcmp(dataname, "fan") == 0) {
     //Serial.println(value);
@@ -112,12 +112,10 @@ void callback_mqtt(char *topic, byte *payload, unsigned int length) {
 
 void read_DHT20() {
   dht20.read();
-  float t = dht20.getTemperature();
-  float h = dht20.getHumidity();
+  temp = dht20.getTemperature();
+  hum = dht20.getHumidity();
 
   //Serial.printf("Temp: %.2f°C, Hum: %.2f%%\n", temp, hum);
-  temp = t;
-  hum = h;
 }
 
 void read_Ultrasonic() {
@@ -149,17 +147,17 @@ void Task_read_sensor(void *pvParameters) {
     read_DHT20();
     read_Ultrasonic();
     read_LightSensor();
-    read_InfraredSensor();
+    //read_InfraredSensor();
 
     //Serial.printf("Temp: %.2f°C, Hum: %.2f%%\n", temp, hum);
     send_mqtt(MQTT_TOPIC[0], temp, "sensor", 1, "temperature");
-    send_mqtt(MQTT_TOPIC[1], hum, "sensor", 2, "huminity");
+    send_mqtt(MQTT_TOPIC[1], hum, "sensor", 2, "humidity");
     send_mqtt(MQTT_TOPIC[2], (float)light, "sensor", 3, "light");
-    send_mqtt(MQTT_TOPIC[3], (float)distance, "sensor", 4, "waterlevel");
-    send_mqtt(MQTT_TOPIC[4], (float)infrared, "sensor", 5, "infrared");
+    send_mqtt(MQTT_TOPIC[3], distance, "sensor", 4, "waterlevel");
+    //send_mqtt(MQTT_TOPIC[4], (float)infrared, "sensor", 5, "infrared");
 
     write_LCD();
-    vTaskDelay(30000 / portTICK_PERIOD_MS);
+    vTaskDelay(5000 / portTICK_PERIOD_MS);
   }
 }
 
@@ -193,7 +191,7 @@ void setup() {
 
   pinMode(Fan_pin, OUTPUT);
   pinMode(PUMP_Pin, OUTPUT);
-
+  pinMode(Infrared_sensor_pin, INPUT);
 
   lcd.backlight();
   lcd.setCursor(0, 0);
@@ -214,9 +212,15 @@ void setup() {
   lcd.print("cm");
 
   xTaskCreatePinnedToCore(Task_read_sensor, "Task_read_sensor", 4096, NULL, 1, NULL, 0);
+  //xTaskCreatePinnedToCore(printInfrared, "TaskprintInfrared", 2046, NULL, 1, NULL, 0);
 }
 
-
+void printInfrared(void *pvParameters) {
+  while (1){
+    Serial.println(digitalRead(Infrared_sensor_pin));
+    vTaskDelay(1000 / portTICK_PERIOD_MS);
+  }
+}
 
 void loop() {
   // put your main code here, to run repeatedly:
@@ -224,17 +228,16 @@ void loop() {
   client.loop();
   if (IrReceiver.decode()) {
     
-    Serial.print("Raw data: ");
+    //Serial.print("Raw data: ");
     Serial.println(IrReceiver.decodedIRData.decodedRawData, HEX); 
     if (IrReceiver.decodedIRData.decodedRawData == Button1) {
-      Serial.println("fuck");
       if (fan_enable) {
         digitalWrite(Fan_pin, LOW);
       } else {
         digitalWrite(Fan_pin, HIGH);
       }
       fan_enable = !fan_enable;
-      send_mqtt(MQTT_TOPIC[5], fan_enable, "device", 1, "fan");
+      send_mqtt(MQTT_TOPIC[5], fan_enable, "device", 6, "fan");
     } else if (IrReceiver.decodedIRData.decodedRawData == Button2) {
       if (led_enable) {
         NeoPixel.clear();
@@ -247,7 +250,7 @@ void loop() {
       }
 
       led_enable = !led_enable;
-      send_mqtt(MQTT_TOPIC[6], led_enable, "device", 2, "led");
+      send_mqtt(MQTT_TOPIC[6], led_enable, "device", 7, "led");
     } else if (IrReceiver.decodedIRData.decodedRawData == Button3) {
       if (pump_enable) {
         digitalWrite(PUMP_Pin, LOW);
@@ -256,7 +259,7 @@ void loop() {
       }
 
       pump_enable = !pump_enable;
-      send_mqtt(MQTT_TOPIC[7], pump_enable, "device", 3, "pump");
+      send_mqtt(MQTT_TOPIC[7], pump_enable, "device", 8, "pump");
     }
     IrReceiver.resume();
   }

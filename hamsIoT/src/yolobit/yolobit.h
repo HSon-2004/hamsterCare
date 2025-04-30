@@ -30,7 +30,7 @@
 
 float temp = 0;
 float hum = 0;
-int distance = 0;
+float distance = 0;
 int light = 0;
 int infrared = 0;
 bool led_enable = false;
